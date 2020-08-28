@@ -1,10 +1,6 @@
 import hashlib
 import json
 import datetime
-import time
-
-with open("fake_twitter_for_testing.json","r") as f:
-	header_chain = json.loads(f.read())
 
 def myhash(object):
 	if type(object) != str and type(object) != dict:
@@ -18,8 +14,22 @@ def myhash(object):
 	digest = hash_object.hexdigest()
 	return digest
 
-def append_header(header_chain,string_to_add,username,do_hasing=False):
-	if do_hasing:
+def get_from_twitter():
+	try:
+		with open("fake_twitter_for_testing.json", "r") as f:
+			content = f.read()
+			if len(content)>0:
+				header_chain = json.loads(content)
+			else:
+				header_chain = []
+	except FileNotFoundError:
+		header_chain = []
+	return header_chain
+
+def append_header(string_to_add,username,do_hashing=False):
+	header_chain = get_from_twitter()
+
+	if do_hashing:
 		new_message = myhash(string_to_add)
 	else:
 		new_message = string_to_add
@@ -31,31 +41,39 @@ def append_header(header_chain,string_to_add,username,do_hasing=False):
 	date = datetime.datetime.timestamp(datetime.datetime.now())
 
 	#  each header contains the date, the hash of the new file, and the the hash of the previous header.
-	# might not need the date, think more about this
-	header = {'date_posix': date,
-			  'new_message': new_message,
+	header = { 'message': new_message,
 			  'hash_of_previous_header': hash_of_previous_header,
 			  'username': username}
 	header_chain.append(header)
+
+	with open("fake_twitter_for_testing.json", "w") as f:
+		f.write(json.dumps(header_chain))
 	return header_chain
 
 def bad_actor(header_chain,n):
 	modified = myhash('I have hacked into the mainframe')
 	header_chain[n]['hash_of_new_file'] = modified
 
-def check_integrity_of_chain(header_chain,upto_index_inclusive):
+def check_integrity_of_chain(upto_index_inclusive=None):
+	header_chain = get_from_twitter()
+	if upto_index_inclusive is None:
+		upto_index_inclusive = len(header_chain)-1
+
+	stringout = ''
 	for i in range(upto_index_inclusive+1):
 		header = header_chain[i]
-		print("")
-		print('index',i,'header with date',header['date_posix'])
+		stringout += '\n'
+		stringout += 'index '+str(i)+' header'+'\n'
 		if i == 0:
-			print("First header, nothing to check")
+			stringout+= "First header, nothing to check"+'\n'
 		else:
 			previous_header = header_chain[i-1]
 			if myhash(previous_header) == header['hash_of_previous_header']:
-				print("Chain valid up to here")
+				stringout += "Chain valid up to here"+'\n'
 			else:
-				raise AssertionError("Chain not valid from here onwards")
+				stringout+= "Chain not valid from here onwards"+'\n'
+				break
+	return stringout
 
 def check_file_against_hash(header_chain,file,index):
 	check_integrity_of_chain(header_chain,index)
@@ -69,6 +87,6 @@ def check_file_against_hash(header_chain,file,index):
 	else:
 		raise AssertionError("They do not match")
 
-with open("fake_twitter_for_testing.json","w") as f:
-	f.write(json.dumps(header_chain))
-
+def tweet_compactly(previous_hash,string_to_add,username,do_hasing=False):
+	placeholder_previous_hash = 'placeholder for previous header hash'
+	stringout = placeholder_previous_hash+'@'+username+'\n'+string_to_add
